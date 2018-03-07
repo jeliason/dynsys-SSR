@@ -1,0 +1,91 @@
+---
+title: "bma_research_scratch"
+author: "Joel Eliason"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(BMA)
+library(MASS)
+library(BMS)
+```
+
+#### BIC Regression
+
+First read in the data and fit the model:
+```{r}
+set.seed(123)
+sig=sqrt(10)
+thinning=5
+data<-read.csv("~/Desktop/research/lorenz_g.csv")
+y<-data[,2]
+x<-data[,3:ncol(data)]
+thin_indices<-seq(1,nrow(data),by=thinning)
+# Changing where we're sampling from
+# thin_indices<-seq(1,nrow(data)/thinning)
+x<-x[thin_indices,]
+y<-y[thin_indices]
+noise<-rnorm(n=nrow(x),sd=sig)
+# x<-scale(x)
+y<-y+noise
+lorenz.bicreg<-bicreg(x,y)
+summary(lorenz.bicreg,digits=2)
+```
+Next let's plot each posterior distribution:
+
+```{r}
+plot(lorenz.bicreg,include=c(1,2,6))
+```
+
+Same thing with the simple1d data:
+```{r}
+thinning=4
+sig=0
+data<-read.csv("~/Desktop/research/simple1d.csv")
+y<-data[,2]
+x<-data[,3:ncol(data)]
+
+# p<-poly(x[,1],4)
+# x<-data.frame(p)
+
+# thin_indices<-seq(1,nrow(data),by=thinning)
+# Changing where we're sampling from
+thin_indices<-seq(1,nrow(data)/thinning)
+x<-x[thin_indices,]
+y<-y[thin_indices]
+# x<-scale(x)
+noise<-rnorm(n=nrow(x),sd=sig)
+# x<-scale(x)
+y<-y+noise
+lorenz.bicreg<-bicreg(x,y)
+summary(lorenz.bicreg,digits=2)
+```
+
+#### Regression with Zellner's g prior (using BMS)
+
+```{r}
+sig=0
+thinning=4
+bms_data<-read.csv("simple1d.csv")
+bms_data<-bms_data[,2:ncol(bms_data)]
+# thin_indices<-seq(1,nrow(bms_data),by=thinning)
+# Changing where we're sampling from
+thin_indices<-seq(1,nrow(bms_data)/thinning)
+bms_data<-bms_data[thin_indices,]
+bms_data[,1]<-bms_data[,1]+rnorm(n=nrow(bms_data),sd=sig)
+bms_data[,2:ncol(bms_data)]<-scale(bms_data[,2:ncol(bms_data)])
+# bms_data
+reg<-bms(bms_data,mprior="uniform")
+# coef(reg)
+# topmodels.bma(reg)[,1:5]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+# data(attitude)
+# att = bms(attitude, mprior = "uniform", g = "UIP", user.int = F)
+# image(att)
+```

@@ -1,0 +1,310 @@
+---
+title: "BMS vs BCR: Initial trials as an exploration of informativity"
+output: html_document
+author: Joel Eliason
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+library(BMS)
+library(deSolve)
+library(BMA)
+```
+### Introduction
+In this notebook, we will be examining two simple cases, in one and two dimensions. In particular, I will be examining the informativity of additional trials run from multiple initial conditions. In all cases, $n$ (the total amount of data) will remain the same - therefore, for multiple ICs, the amount of data per trial will be less than it would be if there was only one IC. Furthermore, I will not be investigating sampling rate in this notebook - however, I will be exploring briefly the effects of various levels of noise at the end of the notebook
+
+##### Variables to be recorded (per coefficient)
+* Posterior mean
+* Posterior standard deviation
+* Probability of inclusion
+* General shape of posterior (e.g. Gaussan, skewed right)
+* Rank of true model
+* Expected model size
+* Posterior model probabilities (top 3)
+
+### 1D case
+
+Here we have the system defined by
+$$\begin{equation}
+\dot{x}=x-0.2x^{3}-0.1x^{4}
+\end{equation}$$
+
+We'll be using three different initial conditions for this experiment: $x(0)=0.1$, $x(0)=1/2$ and $x(0)=5$. Let's solve for all trajectories out to $t_{f}=5$ and then see how well Bayesian model averaging recovers the coefficients when just using the data alone from each trajectory.
+
+```{r}
+parameters<-c(a=1,b=-0.2,c=-0.1)
+step=0.01
+simple1d<-function(t,state,parameters){
+    a<-parameters[[1]]
+    b<-parameters[[2]]
+    c<-parameters[[3]]
+    x<-state
+    dx<-a*x+b*x**3+c*x**4
+    list(dx)
+}
+times<-seq(0,5,by=step)
+# simple_trial<-function(t,state,parameters){
+#     x<-state
+#     dx<-x-0.1*x**3-0.2*x**4
+#     list(dx)
+# }
+# 
+# 
+# ic<-c(x=0.1)
+# sol_trial<-ode(y=ic,times=times,func=simple_trial,parms=c(3,4))
+# plot(sol_trial,xlab="time",ylab="x",main="trial")
+
+state<-c(x=0.1)
+sol1<-ode(y=state,times=times,func=simple1d,parms=parameters)
+plot(sol1,xlab="time",ylab="x",main="x(0)=0.1")
+
+state<-c(x=0.5)
+sol2<-ode(y=state,times=times,func=simple1d,parms=parameters)
+plot(sol2,xlab="time",ylab="x",main="x(0)=0.5")
+
+state<-c(x=5)
+sol3<-ode(y=state,times=times,func=simple1d,parms=parameters)
+plot(sol3,xlab="time",ylab="x",main="x(0)=5")
+```
+
+Let's recover the derivatives for these systems:
+
+```{r}
+# deriv<-function(t,state,parameters){
+#   with(as.list(c(state,parameters)),{
+#     dx<-a*x+b*x**3+c*x**4
+#     list(dx)
+#   })
+# }
+x<-sol1[,2]
+y<-sapply(x,simple1d,t=0,parameters=parameters)
+y1<-unlist(y)
+plot(times,y1,xlab="time",ylab="x_dot",main="derivative for sol1")
+
+x<-sol2[,2]
+y<-sapply(x,simple1d,t=0,parameters=parameters)
+y2<-unlist(y)
+plot(times,y2,xlab="time",ylab="x_dot",main="derivative for sol2")
+
+x<-sol3[,2]
+y<-sapply(x,simple1d,t=0,parameters=parameters)
+y3<-unlist(y)
+plot(times,y3,xlab="time",ylab="x_dot",main="derivative for sol3")
+```
+
+Next, let's try recovering coefficients from each of these systems using the BMS regression function (on default settings) and compare:
+
+### IC 1
+```{r}
+N<-210 # BMS can't handle too much data (not much more than 250 points)
+num_models<-5
+set.seed(12)
+sig=0.1
+d<-4
+x<-poly(sol1[,2],d,raw=TRUE)
+noise<-rnorm(n=N,sd=sig)
+data1<-data.frame(y1,x)
+data1<-data1[1:N,]
+data1[,1]<-data1[,1]+noise
+# data1[,2:ncol(data1)]<-scale(data1[,2:ncol(data1)])
+# cor(data1)
+plot(sol1,xlab="time",ylab="x",main="x(0)=0.1")
+cor(data1[1:N,2],data1[1:N,2],method="spearman")
+acf(data1[1:N,2],lag.max=N)
+reg<-bms(data1)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+```
+
+### IC 2
+```{r}
+x<-poly(sol2[,2],d,raw=TRUE)
+data2<-data.frame(y2,x)
+data2<-data2[1:N,]
+data2[,1]<-data2[,1]+noise
+# data1[,2:ncol(data1)]<-scale(data1[,2:ncol(data1)])
+plot(sol2,xlab="time",ylab="x",main="x(0)=0.5")
+cor(data2[1:N,2],data2[1:N,2],method="spearman")
+acf(data2[1:N,2],lag.max=N)
+reg<-bms(data2)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+```
+
+### IC 3
+
+```{r}
+x<-poly(sol3[,2],d,raw=T)
+data3<-data.frame(y3,x)
+data3<-data3[1:N,]
+data3[,1]<-data3[,1]+noise
+# data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
+plot(sol3,xlab="time",ylab="x",main="x(0)=5")
+cor(data3[1:N,2],data3[1:N,2],method="spearman")
+acf(data3[1:N,2],lag.max=N)
+reg<-bms(data3)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+```
+
+As can be seen, the least informative initial condition is the one given by the last IC. Somehow, this trajectory contains the least amount of information.
+My ideas as to what contributes to informativity:
+* Changes in sign of derivative (inflection points)
+* Lower autocorrelation (higher frequency, derivative is changing a lot)
+
+### Combo case (parts of all 3 trajectories)
+```{r}
+xcom<-c(sol1[1:70,2],sol2[1:70,2],sol3[1:70,2])
+x<-poly(xcom,d,raw=T)
+ycom<-c(y1[1:70],y2[1:70],y3[1:70])
+data_com<-data.frame(ycom,x)
+data_com[,1]<-data_com[,1]+noise
+# data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
+# plot(sol3,xlab="time",ylab="x",main="x(0)=5")
+# cor(data3[1:N,2],data3[1:N,2],method="spearman")
+# acf(data3[1:N,2],lag.max=N)
+reg<-bms(data_com)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+```
+
+As we can see, the top model is the first one, with a posterior probability of 59%. This is because we have reduced significantly the number of repeating values in the data matrix. Furthermore, we can infer that the farther from an attractor that an IC is, the more unique x-values we will have.
+
+Let's test this hypothesis, that the farther from an attractor that an IC is, the better able it will be able to recover ODE:
+
+#### ICs far from attractor
+
+##### x(0)=7
+```{r}
+IC<-7
+sig<-0.1
+state<-c(x=IC)
+sol3<-ode(y=state,times=times,func=simple1d,parms=parameters)
+x<-sol3[,2]
+y<-sapply(x,simple1d,t=0,parameters=parameters)
+y3<-unlist(y)
+x<-poly(sol3[,2],d,raw=T)
+data3<-data.frame(y3,x)
+data3<-data3[1:N,]
+data3[,1]<-data3[,1]+noise
+# data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
+plot(sol3,xlab="time",ylab="x",main=paste0("x(0)=",IC))
+reg<-bms(data3)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+```
+
+##### x(0)=10
+```{r}
+IC=10
+sig<-0.1
+state<-c(x=IC)
+sol3<-ode(y=state,times=times,func=simple1d,parms=parameters)
+x<-sol3[,2]
+y<-sapply(x,simple1d,t=0,parameters=parameters)
+y3<-unlist(y)
+x<-poly(sol3[,2],d,raw=T)
+data3<-data.frame(y3,x)
+data3<-data3[1:N,]
+data3[,1]<-data3[,1]+noise
+# data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
+plot(sol3,xlab="time",ylab="x",main=paste0("x(0)=",IC))
+reg<-bms(data3)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+density(reg, reg = "X1")
+density(reg, reg = "X2")
+density(reg, reg = "X3")
+density(reg, reg = "X4")
+```
+
+### 2D case
+Here we have the system defined by:
+$$\begin{equation}
+\dot{x}=-0.1x^{3}+2y^{3}\\
+\dot{y}=-2x^{3}-0.1y^{3}
+\end{equation}$$
+```{r}
+parameters<-c(a=-0.1,b=2,c=-2,d=-0.1)
+step=0.01
+simple2d<-function(t,state,parameters){
+    a<-parameters[[1]]
+    b<-parameters[[2]]
+    c<-parameters[[3]]
+    d<-parameters[[4]]
+    # print(length(state))
+    X<-state[[1]]
+    Y<-state[[2]]
+    dX<-a*X**3+b*Y**3
+    dY<-c*X**3+d*Y**3
+    list(c(dX,dY))
+}
+times<-seq(0,5,by=step)
+```
+
+Now, let's test recovery at 3 different initial conditions - $(x_{0},y_{0})=(-1,-1)$, $(x_{0},y_{0})=(1,1)$ and $(x_{0},y_{0})=(-1,1)$
+
+#### IC 1
+
+```{r}
+IC=1
+N=210
+x0=-1
+y0=-1
+d=3
+sig<-0.1
+noise<-rnorm(n=N,sd=sig)
+state<-c(X=x0,Y=y0)
+sol3<-ode(y=state,times=times,func=simple2d,parms=parameters)
+x<-sol3[,-1]
+y<-mapply(simple2d,x[,1],x[,2],t=0,parameters=parameters)
+y3<-unlist(y)
+x<-polym(sol3[,2],sol3[,3],degree=d,raw=T)
+data3<-data.frame(y3,x)
+data3<-data3[1:N,]
+data3[,1]<-data3[,1]+noise
+# data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
+plot(sol3,xlab="time",ylab="x",main=paste0("IC ",IC))
+reg<-bms(data3)
+# coef(reg)
+topmodels.bma(reg)[,1:num_models]
+# image(reg)
+# plotModelsize(reg)
+# density(reg, reg = "X1")
+# density(reg, reg = "X2")
+# density(reg, reg = "X3")
+# density(reg, reg = "X4")
+```

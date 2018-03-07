@@ -1,0 +1,14 @@
+---
+title: "bma_bcr_informativity_trial"
+output: html_document
+author: Joel Eliason
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(BMA)
+library(MASS)
+library(BMS)
+```
+
+In this notebook, we will be examining two simple cases, in one and two dimensions. In particular, I will start by examining the informativity of additional trials run from multiple initial conditions. In all cases, $n$ (the total amount of data) will remain the same - therefore, for multiple ICs, the total amount of 
