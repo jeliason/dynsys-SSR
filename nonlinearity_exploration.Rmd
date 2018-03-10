@@ -1,0 +1,88 @@
+---
+title: "Exploring nonlinearity"
+author: "Joel Eliason"
+date: "March 7, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=6)
+library(deSolve)
+library(BMS)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+source("simple1dsolve.R")
+source("cubic2dsolve.R")
+source("plot_cubic.R")
+source("bms_summary.R")
+set.seed(123)
+```
+
+In this notebook, I will be exploring different hypotheses for how well an arbitrary signal can be fit with polynomial regression. Some ideas are:
+
+* Quantifying the nonlinearity of the system (the more "nonlinear", the harder to fit? What does this mean? Explore various ideas of "nonlinearity" - higher degree polynomial? More ups and downs?)
+* Information content of the system
+* Covering of phase space - how much does this matter?
+* Clusters in phase space - the more, the better? (the denser the cluster, the more weighted that area of phase space). What data points can we leave out of clusters? How does redundancy (in information theoretic terms) factor in?
+
+
+```{r}
+step=.01
+tf=5
+sd=0.1
+degree=4
+times=seq(0,tf,by=step)
+
+x0=0.1
+ic1<-simple1dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+
+plot(ic1$X1,ic1$y1)
+plot(times,ic1$X1)
+
+x0=0.5
+ic2<-simple1dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+
+x0=5
+ic3<-simple1dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+
+# N<-210
+# combo<-
+```
+
+#### Simple cubic 2-d system
+
+```{r}
+sd=0
+degree=3
+
+x0=c(1,1)
+ic4<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+plot_cubic(ic4,times)
+
+x0=c(-1,1)
+ic5<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+plot_cubic(ic5,times)
+
+x0=c(1,-1)
+ic6<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+plot_cubic(ic6,times)
+
+x0=c(-1,-1)
+ic7<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+plot_cubic(ic7,times)
+```
+
+### BMS Analysis
+
+#### Simple 1-D
+
+```{r}
+sd=0.1
+degree=4
+
+x0=0.1
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+
+
+```

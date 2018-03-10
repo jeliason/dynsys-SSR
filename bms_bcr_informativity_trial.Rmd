@@ -81,16 +81,19 @@ x<-sol1[,2]
 y<-sapply(x,simple1d,t=0,parameters=parameters)
 y1<-unlist(y)
 plot(times,y1,xlab="time",ylab="x_dot",main="derivative for sol1")
+plot(x,y1)
 
 x<-sol2[,2]
 y<-sapply(x,simple1d,t=0,parameters=parameters)
 y2<-unlist(y)
 plot(times,y2,xlab="time",ylab="x_dot",main="derivative for sol2")
+plot(x,y2)
 
 x<-sol3[,2]
 y<-sapply(x,simple1d,t=0,parameters=parameters)
 y3<-unlist(y)
 plot(times,y3,xlab="time",ylab="x_dot",main="derivative for sol3")
+plot(x,y3)
 ```
 
 Next, let's try recovering coefficients from each of these systems using the BMS regression function (on default settings) and compare:
@@ -108,7 +111,7 @@ data1<-data.frame(y1,x)
 data1<-data1[1:N,]
 data1[,1]<-data1[,1]+noise
 # data1[,2:ncol(data1)]<-scale(data1[,2:ncol(data1)])
-# cor(data1)
+cor(data1)
 plot(sol1,xlab="time",ylab="x",main="x(0)=0.1")
 cor(data1[1:N,2],data1[1:N,2],method="spearman")
 acf(data1[1:N,2],lag.max=N)
@@ -133,6 +136,7 @@ data2[,1]<-data2[,1]+noise
 plot(sol2,xlab="time",ylab="x",main="x(0)=0.5")
 cor(data2[1:N,2],data2[1:N,2],method="spearman")
 acf(data2[1:N,2],lag.max=N)
+cor(data2)
 reg<-bms(data2)
 # coef(reg)
 topmodels.bma(reg)[,1:num_models]
@@ -155,6 +159,7 @@ data3[,1]<-data3[,1]+noise
 plot(sol3,xlab="time",ylab="x",main="x(0)=5")
 cor(data3[1:N,2],data3[1:N,2],method="spearman")
 acf(data3[1:N,2],lag.max=N)
+cor(data3)
 reg<-bms(data3)
 # coef(reg)
 topmodels.bma(reg)[,1:num_models]
@@ -176,7 +181,10 @@ My ideas as to what contributes to informativity:
 xcom<-c(sol1[1:70,2],sol2[1:70,2],sol3[1:70,2])
 x<-poly(xcom,d,raw=T)
 ycom<-c(y1[1:70],y2[1:70],y3[1:70])
+plot(xcom,ycom)
+noise<-rnorm(n=nrow(x),sd=sig)
 data_com<-data.frame(ycom,x)
+cor(data_com)
 data_com[,1]<-data_com[,1]+noise
 # data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
 # plot(sol3,xlab="time",ylab="x",main="x(0)=5")
@@ -225,9 +233,9 @@ density(reg, reg = "X3")
 density(reg, reg = "X4")
 ```
 
-##### x(0)=10
+##### x(0)=100
 ```{r}
-IC=10
+IC=100
 sig<-0.1
 state<-c(x=IC)
 sol3<-ode(y=state,times=times,func=simple1d,parms=parameters)
@@ -241,6 +249,7 @@ data3[,1]<-data3[,1]+noise
 # data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
 plot(sol3,xlab="time",ylab="x",main=paste0("x(0)=",IC))
 reg<-bms(data3)
+reg2<-bms(data3[1:70,])
 # coef(reg)
 topmodels.bma(reg)[,1:num_models]
 # image(reg)
@@ -280,27 +289,27 @@ Now, let's test recovery at 3 different initial conditions - $(x_{0},y_{0})=(-1,
 #### IC 1
 
 ```{r}
-IC=1
-N=210
-x0=-1
-y0=-1
-d=3
-sig<-0.1
-noise<-rnorm(n=N,sd=sig)
-state<-c(X=x0,Y=y0)
-sol3<-ode(y=state,times=times,func=simple2d,parms=parameters)
-x<-sol3[,-1]
-y<-mapply(simple2d,x[,1],x[,2],t=0,parameters=parameters)
-y3<-unlist(y)
-x<-polym(sol3[,2],sol3[,3],degree=d,raw=T)
-data3<-data.frame(y3,x)
-data3<-data3[1:N,]
-data3[,1]<-data3[,1]+noise
-# data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
-plot(sol3,xlab="time",ylab="x",main=paste0("IC ",IC))
-reg<-bms(data3)
-# coef(reg)
-topmodels.bma(reg)[,1:num_models]
+# IC=1
+# N=210
+# x0=-1
+# y0=-1
+# d=3
+# sig<-0.1
+# noise<-rnorm(n=N,sd=sig)
+# state<-c(X=x0,Y=y0)
+# sol3<-ode(y=state,times=times,func=simple2d,parms=parameters)
+# x<-sol3[,-1]
+# y<-mapply(simple2d,x[,1],x[,2],t=0,parameters=parameters)
+# y3<-unlist(y)
+# x<-polym(sol3[,2],sol3[,3],degree=d,raw=T)
+# data3<-data.frame(y3,x)
+# data3<-data3[1:N,]
+# data3[,1]<-data3[,1]+noise
+# # data3[,2:ncol(data3)]<-scale(data3[,2:ncol(data3)])
+# plot(sol3,xlab="time",ylab="x",main=paste0("IC ",IC))
+# reg<-bms(data3)
+# # coef(reg)
+# topmodels.bma(reg)[,1:num_models]
 # image(reg)
 # plotModelsize(reg)
 # density(reg, reg = "X1")
