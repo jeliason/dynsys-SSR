@@ -1,0 +1,232 @@
+---
+title: "noise_test_bas"
+author: "Joel Eliason"
+date: "6/23/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=6)
+library(deSolve)
+library(BMS)
+library(BAS)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+source("simple1dsolve.R")
+source("cubic2dsolve.R")
+source("plot_cubic.R")
+source("bms_summary.R")
+set.seed(123)
+```
+We'll be testing how noise level breaks sampling:
+
+```{r}
+set.seed(123)
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=c(1,10)
+tf=0.5
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+```{r}
+set.seed(20)
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=c(1,10)
+tf=0.5
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+Here we can see that sampling from both sides of the attractor (deeper within the attractor) yields posterior probabilities for the correct model (PPCM) that are identical, though they had different random seeds. This is not the case if we only sample from one side of the attractor.
+
+In fact, we can show how different recovery is for sampling on either side of the attractor for 100 different random seeds:
+
+```{r,warning=FALSE,eval=FALSE}
+step=.01
+sd=0.1
+degree=4
+
+ics=c(1,10)
+tf=5
+times=seq(0,tf,by=step)
+
+numSeeds=100
+post_probs<-rep(0,numSeeds)
+for (i in 1:numSeeds){
+  set.seed(i)
+  df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+  df<-do.call("rbind",df)
+  fit<-bas.lm(y1~.,data=df)
+  w<-fit$which
+  lv=sapply(w,function(z) all(unlist(z)==c(0,1,3,4)))
+  idx=min(which(lv == TRUE))
+  post_probs[i]=fit$postprobs[idx]
+}
+hist(post_probs,breaks=40)
+var(post_probs)
+```
+
+as opposed to sampling from only one side.
+
+```{r,warning=FALSE,eval=FALSE}
+step=.01
+sd=0.1
+degree=4
+
+ics=c(2,10)
+tf=5
+times=seq(0,tf,by=step)
+
+numSeeds=100
+post_probs<-rep(0,numSeeds)
+for (i in 1:numSeeds){
+  set.seed(i)
+  df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+  df<-do.call("rbind",df)
+  fit<-bas.lm(y1~.,data=df)
+  w<-fit$which
+  lv=sapply(w,function(z) all(unlist(z)==c(0,1,3,4)))
+  idx=min(which(lv == TRUE))
+  post_probs[i]=fit$postprobs[idx]
+}
+hist(post_probs,breaks=40)
+var(post_probs)
+```
+
+That's a 3 ORDER OF MAGNITUDE difference in variance from sampling from either side of the attractor, ie, sampling from both sides leads to much more consistent results in recovery of the dynamical system. This is a very basic illustration of why it is so important to understand the geometry of your dynamical system, in order to know where  you have sampled from.
+
+That whole conclusion breaks down, however, once we check ICs at (0.5,1) and (0.5,3), still smapling from one or both sides of the attractor:
+
+```{r,warning=FALSE,eval=FALSE}
+step=.01
+sd=0.1
+degree=4
+
+ics=c(0.5,3)
+tf=5
+times=seq(0,tf,by=step)
+
+numSeeds=100
+post_probs<-rep(0,numSeeds)
+for (i in 1:numSeeds){
+  set.seed(i)
+  df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+  df<-do.call("rbind",df)
+  fit<-bas.lm(y1~.,data=df)
+  w<-fit$which
+  lv=sapply(w,function(z) all(unlist(z)==c(0,1,3,4)))
+  idx=min(which(lv == TRUE))
+  post_probs[i]=fit$postprobs[idx]
+}
+hist(post_probs,breaks=40)
+var(post_probs)
+mean(post_probs)
+```
+
+and sampling from only one side
+
+```{r,warning=FALSE,eval=FALSE}
+step=.01
+sd=0.1
+degree=4
+
+ics=c(0.5,1)
+tf=5
+times=seq(0,tf,by=step)
+
+numSeeds=100
+post_probs<-rep(0,numSeeds)
+for (i in 1:numSeeds){
+  set.seed(i)
+  df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+  df<-do.call("rbind",df)
+  fit<-bas.lm(y1~.,data=df)
+  w<-fit$which
+  lv=sapply(w,function(z) all(unlist(z)==c(0,1,3,4)))
+  idx=min(which(lv == TRUE))
+  post_probs[i]=fit$postprobs[idx]
+}
+hist(post_probs,breaks=40)
+var(post_probs)
+mean(post_probs)
+```
+
+The variance is now smaller for one-sided recovery, opposite of what we saw above. However, the mean of two-sided is still higher, as we saw above.
+
+Now let's get back to seeing how noise affects this recovery process:
+
+```{r}
+set.seed(20)
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=c(1,2)
+tf=5
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+#new_y=predict(fit,data.frame(fit$X[,-1]),top=1,type="response")
+g<-ggplot(df[1:length(times),], aes(times))
+  g<-g+geom_line(aes(y=(df$y1[1:length(times)])), colour="red")
+  g<-g+geom_line(aes(y=(fitted(fit,estimator="HPM")[1:length(times)])), colour="green")
+g
+ggplot(df[(length(times)+1):(2*length(times)),], aes(times))+
+  geom_line(aes(y=df$y1[(length(times)+1):(2*length(times))]), colour="red")+
+  geom_line(aes(y=fitted(fit,estimator="HPM")[(length(times)+1):(2*length(times))]), colour="green")
+```
+
+, as opposed to when we set the noise to zero:
+
+```{r}
+set.seed(20)
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=c(1,10)
+tf=5
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+R2 <- 1 - (sum((actual-predict )^2)/sum((actual-mean(actual))^2))
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+#new_y=predict(fit,data.frame(fit$X[,-1]),top=1,type="response")
+g<-ggplot(df[1:length(times),], aes(times))
+  g<-g+geom_line(aes(y=(df$y1[1:length(times)])), colour="red")
+  g<-g+geom_line(aes(y=(fitted(fit,estimator="HPM")[1:length(times)])), colour="green")
+g
+```

@@ -100,10 +100,10 @@ Next, let's try recovering coefficients from each of these systems using the BMS
 
 ### IC 1
 ```{r}
-N<-210 # BMS can't handle too much data (not much more than 250 points)
+N<-50
 num_models<-5
 set.seed(12)
-sig=0.1
+sig=0.01
 d<-4
 x<-poly(sol1[,2],d,raw=TRUE)
 noise<-rnorm(n=N,sd=sig)
@@ -208,7 +208,7 @@ Let's test this hypothesis, that the farther from an attractor that an IC is, th
 #### ICs far from attractor
 
 ##### x(0)=7
-```{r}
+```{r,eval=FALSE}
 IC<-7
 sig<-0.1
 state<-c(x=IC)
@@ -234,7 +234,7 @@ density(reg, reg = "X4")
 ```
 
 ##### x(0)=100
-```{r}
+```{r,eval=FALSE}
 IC=100
 sig<-0.1
 state<-c(x=IC)

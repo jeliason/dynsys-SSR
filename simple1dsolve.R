@@ -1,4 +1,4 @@
-simple1dsolve<-function(x0,step,tf,sd,degree){
+simple1dsolve<-function(x0,step,tf,sd,degree,center=F){
 
 require(deSolve)
 
@@ -7,7 +7,7 @@ times<-seq(0,tf,by=step)
 ##### SIMPLE 1-D SYSTEM
 
 parameters<-c(a=1,b=-0.2,c=-0.1)
-
+# for default parameters, critical points are at 0 and 1.65425
 # state<-x0
 sol1<-ode(y=x0,times=times,func=simple1d,parms=parameters)
 

@@ -1,0 +1,300 @@
+---
+title: "Finding high certainty levels for simple 1d model"
+author: "Joel Eliason"
+date: "March 20, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=6)
+library(deSolve)
+library(BMS)
+library(BAS)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+source("simple1dsolve.R")
+source("cubic2dsolve.R")
+source("plot_cubic.R")
+source("bms_summary.R")
+set.seed(123)
+```
+
+Here, I will principally be concerned with finding initial conditions/data points that will give 99% certainty reconstruction of the simple 1d model and then paring data points/ICs back until we lose that level of certainty.
+
+First, we have a uniform IC density (of 100 ICs) from 0 to 2, with 101 time steps per IC. This allows us to obtain transient behavior for each of these ICs, but not much steady state behavior.
+```{r}
+set.seed(123)
+step=.01
+tf=1
+sd=0.1
+degree=4
+times=seq(0,tf,by=step)
+x0=1
+
+ic_step=0.02
+ic_f=2
+ics=seq(0.01,ic_f,by=ic_step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+```
+
+Next, let's try 100 ICs, but in a much smaller interval: 0 to 1e-4, with the same number of time steps.
+
+```{r}
+ics=seq(0.00001,0.0001,length.out=100)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+```
+
+100 ICs, [1e-5,1e-4], tf=16
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,0.0001,length.out=100)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+```
+
+At this range of ICs, with this number of ICs, tf=16 looks to be about as good as it's going to get (we can go out to about tf=40, but that only gives slight improvements in the post prob).
+
+Let's try cutting our ICs down by half:
+
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,0.0001,length.out=50)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+Then to numICs=10:
+
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,0.0001,length.out=10)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+That's pretty significant. Let's go back to 50 and spread them out over a larger interval:
+
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,0.001,length.out=50)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+Let's spread them by two more orders of magnitude:
+
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,0.1,length.out=50)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+And two more:
+
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,10,length.out=50)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+Spreading it out over that range seemed like a good idea - let's now cut down the number of ICs again:
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=seq(0.00001,10,length.out=2)
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+Let's try both ICs, independently:
+
+```{r}
+# set.seed(123)
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=0.00001
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+And IC=10:
+
+```{r}
+set.seed(123)
+step=.01
+sd=0.01
+degree=4
+
+x0=1
+
+ics=10
+tf=16
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+
+IC=10 is the best one, run for this long amount of time. Let's take a quick look at the solution for IC=10 again:
+
+```{r}
+plot(times,df[,2])
+```
+
+We're spending a lot of time in the same place. Let's cut down how long we need to sample by half:
+
+```{r}
+step=.01
+sd=0.1
+degree=4
+
+x0=1
+
+ics=10
+tf=0.5
+times=seq(0,tf,by=step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+fit<-bas.lm(y1~.,data=df)
+summary(fit)
+
+```
+We definitely lose some probability mass, which is odd.
+
+Let's fix IC=10, tf=3 and repeat these experiments over a lot of different random seeds.
+
+```{r,warning=FALSE}
+step=.01
+sd=0.1
+degree=4
+
+ics=10
+tf=0.5
+times=seq(0,tf,by=step)
+
+numSeeds=100
+post_probs<-rep(0,numSeeds)
+for (i in 1:numSeeds){
+  set.seed(i)
+  df<-simple1dsolve(x0=ics,step=step,tf=tf,sd=sd,degree=degree)
+  fit<-bas.lm(y1~.,data=df)
+  w<-fit$which
+  lv=sapply(w,function(z) all(unlist(z)==c(0,1,3,4)))
+  idx=min(which(lv == TRUE))
+  post_probs[i]=fit$postprobs[idx]
+}
+hist(post_probs,breaks=40)
+median(post_probs)
+```

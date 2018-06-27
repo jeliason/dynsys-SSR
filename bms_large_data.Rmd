@@ -1,0 +1,186 @@
+---
+title: "Testing BMS with large data"
+author: "Joel Eliason"
+date: "March 19, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(deSolve)
+library(BMS)
+library("BAS", lib.loc="~/R/x86_64-pc-linux-gnu-library/3.4")
+library(gridExtra)
+library(grid)
+library(ggplot2)
+source("simple1dsolve.R")
+source("cubic2dsolve.R")
+source("plot_cubic.R")
+source("bms_summary.R")
+```
+
+Here I will be testing:
+
+* BMS with 100 ICs, equally spaced
+* Random noise added for numerical stability (against collinearity)
+* Identical shift added for numerical stability (against collinearity)
+
+```{r}
+set.seed(123)
+step=.01
+tf=1
+sd=0.1
+degree=4
+times=seq(0,tf,by=step)
+x0=1
+
+ic_step=0.02
+ic_f=2
+ics=seq(0.01,ic_f,by=ic_step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+
+# nrow(df)
+# df
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=df)
+kappa(df)
+solve(t(as.matrix(df))%*%as.matrix(df))
+```
+
+So this doesn't work. Let's try turning up the noise a little bit:
+
+```{r}
+sd=1
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=df)
+kappa(df)
+```
+
+Nailed it. And look at those probabilities. (However, the top model doesn't match). Just to get an idea of what's happening, this particular BMA method uses Zellner's g-priors, which assumes that the regression coefficients have the same covariance structure as the regressors (which is a decent enough hypothesis). However, when the regressors are highly collinear, this can definitely become an issue, since this covariance structure pushes the coefficients of highly collinear regressors in opposite directions - not something that you really want. In this case, it may be better to use independent normal priors for each coefficient (this is essentially synonymous to doing ridge regression, something that we know handles multicollinearity quite well).
+
+Instead of noise, let's try adding a constant $\lambda$ to each y, to see if that also corrects the numerical instability.
+
+```{r}
+sd=0
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+df$y1<-df$y1+5
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=df)
+kappa(df)
+```
+
+This doesn't work.
+
+Next, let's try a wider range of ICs, with the same density (and the noise turned back up):
+
+```{r}
+sd=1
+ic_step=0.2
+ic_f=5
+ics=seq(0.01,ic_f,by=ic_step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+cor(df)
+df[,2:ncol(df)]<-scale(df[,2:ncol(df)],scale=F)
+cor(df)
+nrow(df)
+# df
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=df)
+```
+
+This doesn't work very well. So we may either need to find a different prior (one without the covariance structure of the regressors), or one where we can directly tweak the numerical stability of the design matrix. Both seem to be related to ridge regression. This may involve the use of the BAS package.
+
+Let's check out the eigenvalues and $\kappa$ of that last design matrix before we move on.
+
+```{r}
+rcond(as.matrix(df))
+eigen(t(as.matrix(df))%*%as.matrix(df))
+```
+
+For sd=0, the rcond is clearly below machine epsilon and thus unstable. However, for sd=5, rcond yields a much larger number, which seems much more ok from the perspective of numerical stability. We may have to do some more digging.
+
+Let's try out BAS with the same dataset and see how we do:
+
+```{r}
+
+fit<-bas.lm(y1~.,data=df)
+fit
+summary(fit)
+coef.fit=coef(fit)
+plot(coef.fit,ask=F)
+```
+
+That cleans things right up. However, it picks the wrong top model. Let's try with that earlier set of ICs again.
+
+```{r}
+ic_step=0.02
+ic_f=2
+ics=seq(0.01,ic_f,by=ic_step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+# cor(df)
+df[,2:ncol(df)]<-scale(df[,2:ncol(df)],scale=F)
+
+fit<-bas.lm(y1~.,data=df)
+fit
+summary(fit)
+coef.fit=coef(fit)
+plot(coef.fit,ask=F)
+```
+
+Again, wrong. Let's change the density of ICs to 10x more.
+
+```{r}
+ic_step=0.002
+ic_f=2
+ics=seq(0.01,ic_f,by=ic_step)
+
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+nrow(df)
+df[,2:ncol(df)]<-scale(df[,2:ncol(df)],scale=F)
+
+fit<-bas.lm(y1~.,data=df)
+fit
+summary(fit)
+coef.fit=coef(fit)
+plot(coef.fit,ask=F)
+```
+
+This is correct. I wonder if we'll get the same results if we just take 10x as many points:
+
+```{r}
+ic_step=0.02
+ic_f=2
+ics=seq(0.01,ic_f,by=ic_step)
+tf=10
+df<-lapply(ics, function(z) simple1dsolve(x0=z,step=step,tf=tf,sd=sd,degree=degree))
+df<-do.call("rbind",df)
+nrow(df)
+df[,2:ncol(df)]<-scale(df[,2:ncol(df)],scale=F)
+
+fit<-bas.lm(y1~.,data=df)
+fit
+summary(fit)
+coef.fit=coef(fit)
+plot(coef.fit,ask=F)
+```
+
+Not quite the top model. However, we have all the inclusion probabilites ranked correctly.
+
+Next, let's try centering before we create the polynomial terms, to see if that helps either algorithm. I've added a center option to simple1dsolve.
+
+```{r}
+
+```
+
+* More ICs close to zero (1e-4)
+* breakdown of BMS (difference between BMS and BAS)
+* informativity (get robustly working before experimenting up to very high certainty level)
+* cubic system?
+* Bayesian optimization
+* 

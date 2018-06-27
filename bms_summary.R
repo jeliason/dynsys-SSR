@@ -1,4 +1,4 @@
-bms_summary<-function(x0,step,tf,sd,degree,var=1){
+bms_summary<-function(x0,step,tf,sd,degree,var='x',df=NULL){
   source("simple1dsolve.R")
   source("cubic2dsolve.R")
   require(BMS)
@@ -6,45 +6,46 @@ bms_summary<-function(x0,step,tf,sd,degree,var=1){
   require(gridExtra)
   require(grid)
   require(ggplot2)
+  numModel=5
+  
+  if(is.null(df)){
   if (length(x0)==1){
     df<-simple1dsolve(x0,step,tf,sd,degree)
   }
   else if (length(x0)==2){
     df<-cubic2dsolve(x0,step,tf,sd,degree)
     # pick variable to regress against
-    if(var==1){
+    if(var=='x'){
       df$y2=NULL
     }
     else {
       df$y1=NULL
     }
   }
+  }
+  numGraphs=ncol(df)-1
   
-  reg<-bms(df,user.int=F)
-  coefs<-tableGrob(format(coef(reg)[,1:3],digits=3))
-  # grid.newpage()
-  # grid.draw(coefs)
-  tops<-format(topmodels.bma(reg)[,1:5],digits=2); colnames(tops)<-paste(rep("M",times=5),1:5,sep="")
+  fit<-bms(df,user.int=F,force.full.ols=F)
+  
+  means<-lapply(1:numGraphs,function(x) coef(fit,order.by.pip=F)[x,2])
+  sdev<-lapply(1:numGraphs,function(x) coef(fit,order.by.pip=F)[x,3])
+  
+  means[[1]]
+  coefs<-tableGrob(format(coef(fit)[,1:3],digits=3))
+  tops<-format(topmodels.bma(fit)[,1:numModel],digits=2); colnames(tops)<-paste(rep("M",times=numModel),1:numModel,sep="")
   tops<-tableGrob(tops)
-  p1<-density(reg, reg = "X1",plot=F)
-  p2<-density(reg, reg = "X2",plot=F)
-  p3<-density(reg, reg = "X3",plot=F)
-  p4<-density(reg, reg = "X4",plot=F)
+
+  p<-lapply(1:numGraphs,function(y) density(x=fit,reg=y,plot=F))
+  p<-lapply(1:numGraphs,function(z) data.frame(as.numeric(p[[z]]$x),as.numeric(p[[z]]$y)))
+  names<-lapply(1:numGraphs,function(x) c(paste0("X",x),"Density"))
+  p <- Map(setNames, p, names)
+  p<-lapply(1:numGraphs,function(z) ggplot(p[[z]],aes_string(x=paste0("X",z),y="Density"))+
+              geom_area(color="darkblue",fill="lightblue")+geom_vline(xintercept=means[[z]])+
+              geom_vline(xintercept = c(means[[z]]-sdev[[z]],means[[z]]+sdev[[z]]),linetype="dotted")+
+              annotate("label", x = Inf, y = Inf, label = paste0("SD=",format(sdev[[z]],digits = 3)),vjust=1,hjust=1))
   
-  p1<-data.frame(as.numeric(p1$x),as.numeric(p1$y)); colnames(p1)<-c("X1","Density")
-  p2<-data.frame(as.numeric(p2$x),as.numeric(p2$y)); colnames(p2)<-c("X2","Density")
-  p3<-data.frame(as.numeric(p3$x),as.numeric(p3$y)); colnames(p3)<-c("X3","Density")
-  p4<-data.frame(as.numeric(p4$x),as.numeric(p4$y)); colnames(p4)<-c("X4","Density")
-  
-  p1<-ggplot(p1,aes(x=X1,y=Density))+geom_line()
-  p2<-ggplot(p2,aes(x=X2,y=Density))+geom_line()
-  p3<-ggplot(p3,aes(x=X3,y=Density))+geom_line()
-  p4<-ggplot(p4,aes(x=X4,y=Density))+geom_line()
-  # 
-  lay <- rbind(c(1,3,4),
-               c(2,5,6))
-  # lay <- rbind(c(1,3,4,5,6),
-  #              c(2,3,4,5,6))
-  # 
-  grid.arrange(coefs,tops,p1,p2,p3,p4,layout_matrix=lay)
+  p<-c(list(coefs,tops),p)
+
+  nRow=floor(sqrt(numGraphs+2))
+  do.call("grid.arrange",c(p,nrow=nRow))
 }

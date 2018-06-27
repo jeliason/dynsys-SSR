@@ -46,10 +46,30 @@ ic2<-simple1dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
 x0=5
 ic3<-simple1dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
 
-# N<-210
-# combo<-
+N<-210
+thin=2
+thin_idx<-seq(1,floor(N/3),by=thin)
+# combox<-c(ic1[1:floor(N/3),2],ic2[1:floor(N/3),2],ic3[1:floor(N/3),2])
+# comboy<-c(ic1[1:floor(N/3),1],ic2[1:floor(N/3),1],ic3[1:floor(N/3),1])
+combo<-rbind(ic1[1:floor(N/3),],ic2[1:floor(N/3),],ic3[1:floor(N/3),])
+combo_thin1<-rbind(ic1[thin_idx,],ic2[1:floor(N/3),],ic3[1:floor(N/3),])
+combo_thin2<-rbind(ic1[1:floor(N/3),],ic2[thin_idx,],ic3[1:floor(N/3),])
+combo_thin3<-rbind(ic1[1:floor(N/3),],ic2[1:floor(N/3),],ic3[thin_idx,])
+plot(combo$X2,combo$y1)
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=combo)
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=combo_thin1)
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=combo_thin2)
+bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree,df=combo_thin3)
 ```
 
+Here we can see that thinning out the second set of data has the worst effect on the spreads of the predictors, as well as the probabilities of inclusion.
+
+Let's take another look at phase space plots for the first and second IC:
+```{r}
+plot(ic1$X1[1:floor(N/3)],ic1$y1[1:floor(N/3)])
+plot(ic2$X1[1:floor(N/3)],ic2$y1[1:floor(N/3)])
+plot(ic3$X1[1:floor(N/3)],ic3$y1[1:floor(N/3)])
+```
 #### Simple cubic 2-d system
 
 ```{r}
@@ -59,6 +79,12 @@ degree=3
 x0=c(1,1)
 ic4<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
 plot_cubic(ic4,times)
+cor(ic4)
+kappa(ic4)
+sd=1
+ic4<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+cor(ic4)
+kappa(ic4)
 
 x0=c(-1,1)
 ic5<-cubic2dsolve(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
@@ -78,11 +104,15 @@ plot_cubic(ic7,times)
 #### Simple 1-D
 
 ```{r}
-sd=0.1
-degree=4
-
-x0=0.1
+# sd=0.1
+# degree=4
+# 
+# x0=0.1
+# bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
+# 
+sd=1
+degree=3
+x0=c(1,1)
 bms_summary(x0=x0,step=step,tf=tf,sd=sd,degree=degree)
-
 
 ```
